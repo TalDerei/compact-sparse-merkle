@@ -10,7 +10,6 @@ export class MerkleTree {
   // Object array decleration representing 'KV' store
   public LeafNodes: Nodes.LeafNode[] = [];
   public InternalNodes: Nodes.InternalNode[] = [];
-  public HashPath: Buffer[] = [];
   public ZeroHashes: Nodes.InternalNode[] = [];
 
   // Constructor generates merkle root for empty tree
@@ -87,6 +86,9 @@ export class MerkleTree {
    * Returns the hash path for `index`
    */
   async getHashPath(index: number) {
+    // Instantiate hash path array for transaction with 'index'
+    let TxHashPath: Buffer[] = [];
+
     // Convert index from decimal to binary array
     let binary_array = Number(index).toString(2);
     binary_array = '0'.repeat(Math.log2(this.LeafNodes.length) - binary_array.length) + binary_array;
@@ -96,8 +98,8 @@ export class MerkleTree {
     const length = this.InternalNodes.length - OUTER;
     if (Math.log2(this.LeafNodes.length) != (2^this.depth)) { 
       for (let i = 0; i < OUTER; i++) {
-        this.HashPath.push(this.InternalNodes[length + i].leftChild?.hash!);
-        this.HashPath.push(this.InternalNodes[length + i].rightChild?.hash!);
+        TxHashPath.push(this.InternalNodes[length + i].leftChild?.hash!);
+        TxHashPath.push(this.InternalNodes[length + i].rightChild?.hash!);
       }
     }
 
@@ -107,8 +109,8 @@ export class MerkleTree {
 
     // Construct hash path for 'Inner Tree'
     let n = this.InternalNodes[length - 1];
-    this.HashPath.unshift(n.rightChild!.hash!);
-    this.HashPath.unshift(n.leftChild!.hash!);
+    TxHashPath.unshift(n.rightChild!.hash!);
+    TxHashPath.unshift(n.leftChild!.hash!);
     const INNER = Math.log2(this.LeafNodes.length) - 1; 
     for (let i = INNER; i > 0; i--) {
         if (binary_array[binary_index] == '0') { 
@@ -121,16 +123,60 @@ export class MerkleTree {
         } 
         binary_index++;
 
-        this.HashPath.unshift(n.rightChild!.hash!);
-        this.HashPath.unshift(n.leftChild!.hash!);
+        TxHashPath.unshift(n.rightChild!.hash!);
+        TxHashPath.unshift(n.leftChild!.hash!);
     }
 
     // Construct 2D array for hash path
     const hashpath = [];
-    while(this.HashPath.length) hashpath.push(this.HashPath.splice(0,2));
+    while(TxHashPath.length) hashpath.push(TxHashPath.splice(0,2));
 
     return new HashPath(hashpath);
   }
+
+  /**
+   * Enables light client to request a merkle path proof for `index`
+   */
+  async getMerklePathProof(index: number): Promise<Nodes.InternalNode[]> {
+    console.log("entered merkle path proof");
+
+    // Instantiate merkle path proof for transaction with 'index'
+    let merklePathProof: Nodes.InternalNode[] = [];
+
+    // Leaf nodes
+    if (index % 2 == 0) {
+      merklePathProof.push(this.LeafNodes[index + 1]);
+      merklePathProof.push(this.LeafNodes[index]);
+    } else {
+      merklePathProof.push(this.LeafNodes[index - 1]);
+      merklePathProof.push(this.LeafNodes[index]);
+    }
+
+    let depth = Math.log2(this.LeafNodes.length);
+    for (let i = 1; i < depth; i++) {
+      let indice = Math.floor(index / 2);  
+      if (indice % 2 == 0) { 
+        merklePathProof.push(this.InternalNodes[indice + 1]);
+      } else {
+        merklePathProof.push(this.InternalNodes[indice - 1]);
+      }
+    }
+
+    return merklePathProof;
+  }
+
+  /**
+   * Enables light clients to perform Simple Payment Verification (SPV) 
+   * by verifying merkle path proof
+   */
+   async verifyMerklePathProof(merklePathProof: Nodes.InternalNode[], root: Buffer): Promise<Buffer>  {
+    // Reconstruct merkle root from merkle path proof
+    for (let i = 0; i < merklePathProof.length - 1; i++) {
+      merklePathProof[0].hash = this.hasher.compress(merklePathProof[0].hash!, merklePathProof[i + 1].hash!);
+    }
+    
+    return merklePathProof[0].hash!;
+   }  
 
   /**
    * Updates the tree with `value` at `index`. Returns the new tree root.
