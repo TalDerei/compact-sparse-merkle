@@ -76,3 +76,9 @@ describe('merkle_tree', () => {
     );
   });
 });
+
+// TODO: make hashpath 2D buffer
+// TODO: Extend batch insertion to more than one insertion to grow merkle tree + correctness tests
+// TODO: Add merkle proofs
+// TODO: Add verification test
+// TODO: Add parallelization strategy for batch insertion and updates 

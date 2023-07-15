@@ -3,61 +3,22 @@ import { HashPath, Sha256Hasher } from './utils';
 const MAX_DEPTH = 32;
 const LEAF_BYTES = 64; 
 
-/**
- * Namespace for node types
- */
-namespace Nodes {
-  // KV store is composed of (index, value) pairs
-  export interface LeafNode {
-    index: number, 
-    value: Buffer, 
-    hash: Buffer, 
-    leftChild: null, 
-    rightChild: null,
-  }
-  
-  export interface InternalNode {
-    leftChild: InternalNode | null, 
-    rightChild: InternalNode | null,
-    hash: Buffer | null,
-  }    
-}
-
-/**
- * The merkle tree, in summary, is a data structure with a number of indexable elements, and the property
- * that it is possible to provide a succinct proof (HashPath) that a given piece of data, exists at a certain index,
- * for a given merkle tree root.
- */
 export class MerkleTree {
   public hasher = new Sha256Hasher();
   public root = Buffer.alloc(32);
 
-  // Object array decleration for nodes
+  // Object array decleration representing 'KV' store
   public LeafNodes: Nodes.LeafNode[] = [];
   public InternalNodes: Nodes.InternalNode[] = [];
   public HashPath: Buffer[] = [];
   public ZeroHashes: Nodes.InternalNode[] = [];
 
-  /**
-   * Constructs a new MerkleTree instance, either initializing an empty tree, or restoring pre-existing state values.
-   * Use the async static `new` function to construct.
-   *
-   * @param db Underlying leveldb.
-   * @param name Name of the tree, to be used when restoring/persisting state.
-   * @param depth The depth of the tree, to be no greater than MAX_DEPTH.
-   * @param root When restoring, you need to provide the root.
-   */
-  constructor(private name: string, public depth: number, root?: Buffer) {
+  // Constructor generates merkle root for empty tree
+  constructor(private name: string, public depth: number) {
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Bad depth');
     }
     
-    // The root is not saving for some reason?
-    if (root?.toString('hex') != undefined) {
-      this.root = root!;
-      return;
-    }
-    // Construct merkle root for zero tree
     for (let i = 0; i <= depth; i++) {
       this.root = this.hasher.compress(this.root, this.root);
       this.ZeroHashes.push({
@@ -69,16 +30,57 @@ export class MerkleTree {
   }
 
   /**
-   * Constructs or restores a new MerkleTree instance with the given `name` and `depth`.
-   * The `db` contains the tree data.
+   * Initialize new merkle tree instance
    */
   static async new(name: string, depth = MAX_DEPTH) {
       const tree = new MerkleTree(name, depth);
       return tree;
   }
 
-  getRoot() {
-    return this.root;
+  /**
+   * Construct merkle tree recursively
+   */
+  async constructMerkleTree(internal: Nodes.InternalNode[], count: number, z: number): Promise<any> {
+    // Intermediary array to help with recursion
+    let intermediaryArray: Nodes.InternalNode[] = [];
+
+    // Calculate the number of parent nodes based on the number of child nodes
+    let parents = Math.floor(count / 2 + count % 2);
+
+    // Construct merkle tree for 'Inner Tree'
+    let j = 0;
+    for (let i = 0; i < count; i += 2) {
+      intermediaryArray[j] = {
+        hash: this.hasher.compress(internal[i].hash!, internal[i + 1].hash!),
+        leftChild: internal[i],
+        rightChild: internal[i + 1],
+      };
+      this.InternalNodes[z] = intermediaryArray[j];
+      j++;
+      z++;
+      
+      // Base case to terminate recursion
+      if (parents == 1) {
+        // Construct merkle tree for 'Outer Tree' if # number leaves != tree depth
+        if (Math.log2(this.LeafNodes.length) != (2^this.depth)) {
+          let y = Math.log2(this.LeafNodes.length);
+          const OUTER =  this.depth - Math.log2(this.LeafNodes.length);
+          for (let i = 0; i < OUTER; i++) { 
+            this.InternalNodes.push({
+              leftChild: this.InternalNodes[this.InternalNodes.length - 1], 
+              rightChild: this.ZeroHashes[y],
+              hash: this.hasher.compress(this.InternalNodes[this.InternalNodes.length - 1].hash!, this.ZeroHashes[y].hash!),
+            });
+            y++;
+          }
+        }
+        this.root = this.InternalNodes[this.InternalNodes.length - 1].hash!;
+        return this.root;
+      }
+    }
+    
+    // Recursively call 'constructMerkleTree'
+    return this.constructMerkleTree(intermediaryArray, parents, z);
   }
 
   /**
@@ -159,48 +161,9 @@ export class MerkleTree {
   }
 
   /**
-   * Construct merkle tree recursively
+   * Returns merkle root
    */
-  async constructMerkleTree(internal: Nodes.InternalNode[], count: number, z: number): Promise<any> {
-    // Intermediary array to help with recursion
-    let intermediaryArray: Nodes.InternalNode[] = [];
-
-    // Calculate the number of parent nodes based on the number of child nodes
-    let parents = Math.floor(count / 2 + count % 2);
-
-    // Construct merkle tree for 'Inner Tree'
-    let j = 0;
-    for (let i = 0; i < count; i += 2) {
-      intermediaryArray[j] = {
-        hash: this.hasher.compress(internal[i].hash!, internal[i + 1].hash!),
-        leftChild: internal[i],
-        rightChild: internal[i + 1],
-      };
-      this.InternalNodes[z] = intermediaryArray[j];
-      j++;
-      z++;
-      
-      // Base case to terminate recursion
-      if (parents == 1) {
-        // Construct merkle tree for 'Outer Tree' if # numbers != tree depth
-        if (Math.log2(this.LeafNodes.length) != (2^this.depth)) {
-          let y = Math.log2(this.LeafNodes.length);
-          const OUTER =  this.depth - Math.log2(this.LeafNodes.length);
-          for (let i = 0; i < OUTER; i++) { 
-            this.InternalNodes.push({
-              leftChild: this.InternalNodes[this.InternalNodes.length - 1], 
-              rightChild: this.ZeroHashes[y],
-              hash: this.hasher.compress(this.InternalNodes[this.InternalNodes.length - 1].hash!, this.ZeroHashes[y].hash!),
-            });
-            y++;
-          }
-        }
-        this.root = this.InternalNodes[this.InternalNodes.length - 1].hash!;
-        return this.root;
-      }
-    }
-    
-    // Recursively call 'constructMerkleTree'
-    return this.constructMerkleTree(intermediaryArray, parents, z);
+  getRoot() {
+    return this.root;
   }
 }
