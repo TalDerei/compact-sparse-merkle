@@ -1,2 +1,2 @@
-export * from './merkle_tree';
+export * from './serial_merkle_tree';
 export * from './utils';
