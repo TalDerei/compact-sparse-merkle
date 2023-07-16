@@ -11,8 +11,16 @@
 The following outlines the merkle tree operations from the server-side.    
 
 Insertions are batched and processed in epochs, where an epoch depends on some number of update requests to be queued
-before triggering the processing mechanism. An OpenMP / MPI-like library (e.g. involving web workers) to achieve parallelism. Parallelization strategy is a divide- and-conquere approach where the entire tree is divided into independent subtrees. Tree manipulations (e.g. insertions / updates) are parallel and lockless by design where individual processors / threads (web workers in typescript) work on different parts of the merkle tree. Importantly, "parallel processing must stop at a certain depth" or else locking is required to avoid race conditions. 
+before triggering the processing mechanism. An OpenMP / MPI-like library (e.g. involving web workers) will be used to achieve parallelism. The parallelization strategy is based on a divide- and-conquere approach where the entire tree is divided into independent subtrees. Tree manipulations (e.g. insertions / updates) are parallel and lockless by design where individual processors / threads (web workers in typescript) work on different parts of the merkle tree. Importantly, "parallel processing must stop at a certain depth" or else locking is required to avoid race conditions. 
 
-For now, we'll stick with batched merkle tree construction, batched insertions and individual updates. For an insertion, a subtree comprising the batch is composed of child subtrees can be processed independently. Hashes in the same subgroup of the child subtree are processed serially. Batched 'updates' will come later on, requiring a sparse merkle tree structure and a defined locking mechanism to identify common ancestor nodes.
+For now, we'll stick with batched merkle tree construction, batched insertions and individual (single) updates. For an insertion, a subtree comprising the batch is composed of child subtrees can be processed independently. Hashes in the same subgroup of the child subtree are processed serially. Batched 'updates' will come later on, requiring a sparse merkle tree structure and a defined locking mechanism to identify common ancestor nodes.
 
   
+**TODO:**
+
+* TODO: Extend batch insertion to more than one insertion to grow merkle tree + correctness tests
+* TODO: Remove internalNodes array in place of 2D array created for the merkle tree
+* TODO: Add ternery syntax
+* TODO: Make merkle path proof and verification work for 'all' subtrees, and then full tree
+* TODO: Add parallelization strategy for batch insertion and updates 
+* TODO: Add benchmarking harness and suite for serial implementation 

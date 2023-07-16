@@ -1,3 +1,4 @@
+import { assert } from 'console';
 import { MerkleTree, HashPath } from '.';
 import { Sha256Hasher } from './utils';
 
@@ -76,19 +77,28 @@ describe('merkle_tree', () => {
     );
   });
 
-  it('should have the correct merkle path proof and verification', async () => {
+  it('should have the correct merkle path proof and verification for subtree', async () => {
     const hasher = new Sha256Hasher();
     const e00 = hasher.hash(values[0]);
     const e01 = hasher.hash(values[1]);
     const e02 = hasher.hash(values[2]);
     const e03 = hasher.hash(values[3]);
-    const e10 = hasher.compress(e00, e01);
-    const e11 = hasher.compress(e02, e03);
-    const root = hasher.compress(e10, e11);
+    const e04 = hasher.hash(values[4]);
+    const e05 = hasher.hash(values[5]);
+    const e06 = hasher.hash(values[6]);
+    const e07 = hasher.hash(values[7]);
+    const e08 = hasher.hash(values[8]);
+    const e09 = hasher.hash(values[9]);
+    const e10 = hasher.hash(values[10]);
+    const e11 = hasher.hash(values[11]);
+    const e12 = hasher.hash(values[12]);
+    const e13 = hasher.hash(values[13]);
+    const e14 = hasher.hash(values[14]);
+    const e15 = hasher.hash(values[15]);
 
-    const tree = await MerkleTree.new('test', 2);
+    const tree = await MerkleTree.new('test', 4);
 
-    let count: number = 4;
+    let count: number = 16;
     tree.createLeafNode(values, count);
 
     // Performing batch insertion
@@ -97,17 +107,15 @@ describe('merkle_tree', () => {
     }
 
     // Request merkle path proof
-    let merklePathProof = await tree.getMerklePathProof(1);
+    let merklePathProof = await tree.getMerklePathProof(4);
 
     // Verify inclusion proof
-    let verifyProof = await tree.verifyMerklePathProof(merklePathProof, root);
+    let verifyProof = await tree.verifyMerklePathProof(4, merklePathProof, tree.root);
 
-    if (verifyProof.toString('hex') == root.toString('hex')) {
-      console.log("Merkle path proof is verified!")
-    }
+    expect(verifyProof.toString('hex')).toBe(tree.root.toString('hex'));
+  });
+
+  it('should have the correct merkle path proof and verification for full tree', async () => {
+    
   });
 });
-
-// TODO: Extend batch insertion to more than one insertion to grow merkle tree + correctness tests
-// TODO: Add parallelization strategy for batch insertion and updates 
-// TODO: Add benchmarking harness and suite for serial implementation 
