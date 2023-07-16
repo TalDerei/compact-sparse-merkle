@@ -19,8 +19,5 @@ For now, we'll stick with batched merkle tree construction, batched insertions a
 **TODO:**
 
 * TODO: Extend batch insertion to more than one insertion to grow merkle tree + correctness tests
-* TODO: Remove internalNodes array in place of 2D array created for the merkle tree
-* TODO: Add ternery syntax
-* TODO: Make merkle path proof and verification work for 'all' subtrees, and then full tree
 * TODO: Add parallelization strategy for batch insertion and updates 
 * TODO: Add benchmarking harness and suite for serial implementation 
