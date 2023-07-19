@@ -59,9 +59,8 @@ export class MerkleTree {
       
       // Base case to terminate recursion
       if (parents == 1) {
+        // Append root of 'Inner Tree'
         this.InternalNodes.push(intermediaryArray); 
-
-        // Push first element
         this.HelperNodes.push({
           leftChild: this.InternalNodes[this.InternalNodes.length - 1][0],
           rightChild: null,
@@ -174,6 +173,16 @@ export class MerkleTree {
         merklePathProof.push(this.InternalNodes[t][index - 1].hash!);
       }
       t++;
+    }
+
+    // Add 'Outer Tree' to merkle path proof
+    if (Math.log2(this.LeafNodes.length) != (2^this.depth)) {
+      let y = Math.log2(this.LeafNodes.length);
+      const OUTER =  this.depth - Math.log2(this.LeafNodes.length);
+      for (let i = 0; i < OUTER; i++) { 
+        merklePathProof.push(this.PrecomputedZeroHashes[y].hash!);
+        y++;
+      }
     }
 
     return merklePathProof;

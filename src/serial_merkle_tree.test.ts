@@ -116,6 +116,22 @@ describe('merkle_tree', () => {
   });
 
   it('should have the correct merkle path proof and verification for full tree', async () => {
-    
+    const tree = await MerkleTree.new('test', 32);
+
+    let count: number = 1024;
+    tree.createLeafNode(values, count);
+
+    // Performing batch insertion
+    for (let i = 0; i < 1; ++i) {
+      await tree.updateElement(i, values[i]);
+    }
+
+    // Request merkle path proof
+    let merklePathProof = await tree.getMerklePathProof(100);
+
+    // Verify inclusion proof
+    let verifyProof = await tree.verifyMerklePathProof(100, merklePathProof, tree.root);
+
+    expect(verifyProof.toString('hex')).toBe(tree.root.toString('hex'));
   });
 });
