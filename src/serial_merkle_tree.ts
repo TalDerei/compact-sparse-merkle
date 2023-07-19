@@ -126,13 +126,7 @@ export class MerkleTree {
 
     for (let i = INNER; i > 0; i--) {
         t--;
-        if (binary_array[binary_index] == '0') { 
-          indice = 2 * indice;
-          let n = this.InternalNodes[t][indice];
-        } else {
-          indice = 2 * indice + 1;
-          let n = this.InternalNodes[t][indice];
-        } 
+        indice = binary_array[binary_index] == '0' ? 2 * indice : 2 * indice + 1;
         binary_index++;
 
         TxHashPath.unshift(this.InternalNodes[t][indice].rightChild!.hash!);
@@ -153,25 +147,23 @@ export class MerkleTree {
     // Instantiate merkle path proof for transaction with 'index'
     let merklePathProof: Buffer[] = [];
 
+    // Determine the direction of the siblings in the merkle path
+    var leftChild = index % 2 === 0;
+    var siblingIndex = leftChild ? index + 1 : index - 1;
+
     // Add leaf nodes in merkle path proof
-    if (index % 2 == 0) {
-      merklePathProof.push(this.LeafNodes[index].hash!);
-      merklePathProof.push(this.LeafNodes[index + 1].hash!);
-    } else {
-      merklePathProof.push(this.LeafNodes[index - 1].hash!);
-      merklePathProof.push(this.LeafNodes[index].hash!);
-    }
+    merklePathProof.push(this.LeafNodes[index].hash!);
+    merklePathProof.push(this.LeafNodes[siblingIndex].hash!);
 
     // Add 'Inner Tree' to merkle path proof
     let t = 0;
     let depth = Math.log2(this.LeafNodes.length);
     for (let i = 1; i < depth; i++) {
       index = Math.floor(index / 2);  
-      if (index % 2 == 0) { 
-        merklePathProof.push(this.InternalNodes[t][index + 1].hash!);
-      } else {
-        merklePathProof.push(this.InternalNodes[t][index - 1].hash!);
-      }
+      leftChild = index % 2 === 0;
+      siblingIndex = leftChild ? index + 1 : index - 1;
+      merklePathProof.push(this.InternalNodes[t][siblingIndex].hash!);
+
       t++;
     }
 
@@ -195,11 +187,10 @@ export class MerkleTree {
    */
    async verifyMerklePathProof(index: number, merklePathProof:  Buffer[], root: Buffer): Promise<Buffer>  {
     for (let i = 0; i < merklePathProof.length - 1; i++) {
-      if (index % 2 == 0) { 
-        merklePathProof[0] = this.hasher.compress(merklePathProof[0], merklePathProof[i + 1]);
-      } else {
-        merklePathProof[0] = this.hasher.compress(merklePathProof[i + 1], merklePathProof[0]);
-      }
+      var leftChild = index % 2 === 0;
+      merklePathProof[0] = leftChild ? 
+        this.hasher.compress(merklePathProof[0], merklePathProof[i + 1]) : 
+        this.hasher.compress(merklePathProof[i + 1], merklePathProof[0]);
       index = Math.floor(index / 2);
     }
 
