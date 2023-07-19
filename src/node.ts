@@ -3,21 +3,19 @@
  */
 export namespace KVStore {
     export class MerkleTreeDB implements KV {   
-        InternalNodes: InternalNode[][] = [];
-        HelperNodes: InternalNode[] = [];
-        PrecomputedZeroHashes: InternalNode[] = [];
+        InnerTree_InternalNodes: InternalNode[][] = [];
+        OuterTree_InternalNodes: InternalNode[] = [];
+        Precomputed_ZeroHashes: InternalNode[] = [];
     }
 
     export class StateDB implements State {
         LeafNodes: LeafNode[] = [];
     }
 
-    export interface LeafNode {
+    export interface LeafNode extends InternalNode{
         index: number, 
         value: Buffer, 
         hash: Buffer, 
-        leftChild: null, 
-        rightChild: null,
     }
         
     export interface InternalNode {
@@ -27,9 +25,9 @@ export namespace KVStore {
     }       
 
     export interface KV {
-        InternalNodes: InternalNode[][],
-        HelperNodes: InternalNode[],
-        PrecomputedZeroHashes: InternalNode[],
+        InnerTree_InternalNodes: InternalNode[][],
+        OuterTree_InternalNodes: InternalNode[],
+        Precomputed_ZeroHashes: InternalNode[],
     }
 
     export interface State {
