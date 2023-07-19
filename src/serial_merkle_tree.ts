@@ -1,5 +1,5 @@
 import { HashPath, Sha256Hasher } from './utils';
-import { KVStores } from './node';
+import { KVStore } from './node';
 
 const MAX_DEPTH = 32;
 const LEAF_BYTES = 64; 
@@ -9,10 +9,10 @@ export class MerkleTree {
   public root = Buffer.alloc(32);
 
   // Instantiate private 'KV' class object representing merkle tree data structure
-  private KV: KVStores.KVStore = new KVStores.KVStore();
+  private KV: KVStore.MerkleTreeDB = new KVStore.MerkleTreeDB();
 
   // Instantiate private 'StateDB' class object representing the actual state data
-  private State: KVStores.StateDB = new KVStores.StateDB();
+  private State: KVStore.StateDB = new KVStore.StateDB();
 
   // Constructor generates merkle root for empty tree
   constructor(public depth: number) {    
@@ -40,9 +40,9 @@ export class MerkleTree {
   /**
    * Construct merkle tree recursively
    */
-  async constructMerkleTree(internal: KVStores.InternalNode[], count: number, z: number, t: number): Promise<any> {
+  async constructMerkleTree(internal: KVStore.InternalNode[], count: number, z: number, t: number): Promise<any> {
     // Intermediary array to help with recursion
-    let intermediaryArray: KVStores.InternalNode[] = [];
+    let intermediaryArray: KVStore.InternalNode[] = [];
 
     // Calculate the number of parent nodes based on the number of child nodes
     let parents = Math.floor(count / 2 + count % 2);

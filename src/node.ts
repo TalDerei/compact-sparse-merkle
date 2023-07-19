@@ -1,14 +1,14 @@
 /**
  * Namespace for Key-Value 'KV' store
  */
-export namespace KVStores {
-    export class KVStore implements KV {   
+export namespace KVStore {
+    export class MerkleTreeDB implements KV {   
         InternalNodes: InternalNode[][] = [];
         HelperNodes: InternalNode[] = [];
         PrecomputedZeroHashes: InternalNode[] = [];
     }
 
-    export class StateDB implements StateDB {
+    export class StateDB implements State {
         LeafNodes: LeafNode[] = [];
     }
 
@@ -32,7 +32,7 @@ export namespace KVStores {
         PrecomputedZeroHashes: InternalNode[],
     }
 
-    export interface StateDB {
+    export interface State {
         LeafNodes: LeafNode[];
     }
 }
