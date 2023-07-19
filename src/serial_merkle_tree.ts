@@ -148,8 +148,7 @@ export class MerkleTree {
     let merklePathProof: Buffer[] = [];
 
     // Determine the direction of the siblings in the merkle path
-    var leftChild = index % 2 === 0;
-    var siblingIndex = leftChild ? index + 1 : index - 1;
+    var siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
 
     // Add leaf nodes in merkle path proof
     merklePathProof.push(this.LeafNodes[index].hash!);
@@ -160,8 +159,7 @@ export class MerkleTree {
     let depth = Math.log2(this.LeafNodes.length);
     for (let i = 1; i < depth; i++) {
       index = Math.floor(index / 2);  
-      leftChild = index % 2 === 0;
-      siblingIndex = leftChild ? index + 1 : index - 1;
+      siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
       merklePathProof.push(this.InternalNodes[t][siblingIndex].hash!);
 
       t++;
@@ -185,10 +183,14 @@ export class MerkleTree {
    * by verifying merkle path proof by reconstructing merkle root
    * from merkle path proof. 
    */
-   async verifyMerklePathProof(index: number, merklePathProof:  Buffer[], root: Buffer): Promise<Buffer>  {
+   async verifyMerklePathProof(index: number, merklePathProof:  Buffer[]): Promise<Buffer | String>  {
+    if(!merklePathProof || merklePathProof.length === 0) {
+      return "Empty 'Merkle Path Proof'!";
+    }
+
+    // Iteratively hash the merkle path proof pairs
     for (let i = 0; i < merklePathProof.length - 1; i++) {
-      var leftChild = index % 2 === 0;
-      merklePathProof[0] = leftChild ? 
+      merklePathProof[0] = index % 2 === 0 ? 
         this.hasher.compress(merklePathProof[0], merklePathProof[i + 1]) : 
         this.hasher.compress(merklePathProof[i + 1], merklePathProof[0]);
       index = Math.floor(index / 2);

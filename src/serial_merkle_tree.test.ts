@@ -110,7 +110,7 @@ describe('merkle_tree', () => {
     let merklePathProof = await tree.getMerklePathProof(4);
 
     // Verify inclusion proof
-    let verifyProof = await tree.verifyMerklePathProof(4, merklePathProof, tree.root);
+    let verifyProof = await tree.verifyMerklePathProof(4, merklePathProof);
 
     expect(verifyProof.toString('hex')).toBe(tree.root.toString('hex'));
   });
@@ -130,7 +130,7 @@ describe('merkle_tree', () => {
     let merklePathProof = await tree.getMerklePathProof(100);
 
     // Verify inclusion proof
-    let verifyProof = await tree.verifyMerklePathProof(100, merklePathProof, tree.root);
+    let verifyProof = await tree.verifyMerklePathProof(100, merklePathProof);
 
     expect(verifyProof.toString('hex')).toBe(tree.root.toString('hex'));
   });
