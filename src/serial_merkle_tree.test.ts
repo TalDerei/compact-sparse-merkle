@@ -36,7 +36,7 @@ describe('merkle_tree', () => {
 
     // Performing batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     let expected = new HashPath([
@@ -67,7 +67,7 @@ describe('merkle_tree', () => {
 
     // Performing batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     expect(tree.root.toString('hex')).toBe('26996bfcb0aaf96422aefdd789396a3f6c8a4fa6dccc73e55060e03e2a238db0');
@@ -104,7 +104,7 @@ describe('merkle_tree', () => {
 
     // Performing batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     // Request merkle path proof
@@ -124,7 +124,7 @@ describe('merkle_tree', () => {
 
     // Performing batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     // Request merkle path proof
@@ -144,7 +144,7 @@ describe('merkle_tree', () => {
 
     // Performing first batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     let count2: number = 1024;
@@ -152,7 +152,7 @@ describe('merkle_tree', () => {
 
     // Performing second batch insertion
     for (let i = 0; i < 1; ++i) {
-      await tree.updateElement(i, values[i]);
+      await tree.insert(values);
     }
 
     // Request merkle path proof

@@ -216,14 +216,21 @@ export class MerkleTree {
    }  
 
   /**
-   * Updates the tree with `value` at `index`. Returns the new tree root.
+   * Performs a batch insertion for a array buffer of values
    */
-  async updateElement(index: number, value: Buffer) {
-    // Update the value at index
-    // this.State.LeafNodes[index].value = value;
-
+  async insert(values: Buffer[]) {
     // Reconstruct the merkle root
     this.root = await this.constructMerkleTree(this.State.LeafNodes, this.State.LeafNodes.length, 0, 0); 
+  }
+
+  /**
+   * Updates the tree with `value` at `index`. Returns the new tree root.
+   */
+  async update(index: number, value: Buffer) {
+    // Perform a single update
+    this.State.LeafNodes[index].value = value;
+
+    // Update the specific merkle path for the updated element
   }
 
   /**
