@@ -18,7 +18,6 @@ For now, we'll stick with batched merkle tree construction, batched insertions a
   
 **TODO:**
 
-* TODO: Possibly reduce 'HelperNodes'
-* TODO: Extend batch insertion to more than one insertion to grow merkle tree + correctness tests
+* TODO: move updating value to different function 
 * TODO: Add parallelization strategy for batch insertion and updates 
 * TODO: Add benchmarking harness and suite for serial implementation 

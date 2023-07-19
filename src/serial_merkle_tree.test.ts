@@ -4,6 +4,7 @@ import { Sha256Hasher } from './utils';
 
 describe('merkle_tree', () => {
   const values: Buffer[] = [];
+  const values2: Buffer[] = [];
 
   beforeAll(async () => {
     for (let i = 0; i < 1024; ++i) {
@@ -122,6 +123,34 @@ describe('merkle_tree', () => {
     tree.createLeafNode(values, count);
 
     // Performing batch insertion
+    for (let i = 0; i < 1; ++i) {
+      await tree.updateElement(i, values[i]);
+    }
+
+    // Request merkle path proof
+    let merklePathProof = await tree.getMerklePathProof(100);
+
+    // Verify inclusion proof
+    let verifyProof = await tree.verifyMerklePathProof(100, merklePathProof);
+
+    expect(verifyProof.toString('hex')).toBe(tree.root.toString('hex'));
+  });
+
+  it('should have the correct merkle path proof and verification for full tree with multiple batch insertions', async () => {
+    const tree = await MerkleTree.new(32);
+
+    let count: number = 1024;
+    tree.createLeafNode(values, count);
+
+    // Performing first batch insertion
+    for (let i = 0; i < 1; ++i) {
+      await tree.updateElement(i, values[i]);
+    }
+
+    let count2: number = 1024;
+    tree.createLeafNode(values, count2);
+
+    // Performing second batch insertion
     for (let i = 0; i < 1; ++i) {
       await tree.updateElement(i, values[i]);
     }

@@ -8,6 +8,10 @@ export namespace KVStore {
         Precomputed_ZeroHashes: InternalNode[] = [];
     }
 
+    export class MerkleTreeMetaData {
+        number_of_updates: number = 0;
+    }
+
     export class StateDB implements State {
         LeafNodes: LeafNode[] = [];
     }

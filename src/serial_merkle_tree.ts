@@ -8,11 +8,14 @@ export class MerkleTree {
   public hasher = new Sha256Hasher();
   public root = Buffer.alloc(32);
 
-  // Instantiate private 'KV' class object representing merkle tree data structure
-  private KV: KVStore.MerkleTreeDB = new KVStore.MerkleTreeDB();
-
-  // Instantiate private 'StateDB' class object representing the actual data
-  private State: KVStore.StateDB = new KVStore.StateDB();
+  // Instantiate private class objects representing:
+  //    (1) merkle tree data structure,
+  //    (2) merkle tree metadata
+  //    (3) state data (ie. actual data)
+  
+  public KV: KVStore.MerkleTreeDB = new KVStore.MerkleTreeDB();
+  public MetaData: KVStore.MerkleTreeMetaData = new KVStore.MerkleTreeMetaData();
+  public State: KVStore.StateDB = new KVStore.StateDB();
 
   // Constructor generates merkle root for empty tree
   constructor(public depth: number) {    
@@ -85,13 +88,21 @@ export class MerkleTree {
             y++;
           }
         }
+
+        // Update metadata for state updates
+        this.MetaData.number_of_updates++;
+
+        
+        // Assign and return root of merkle tree 
         this.root = this.KV.OuterTree_InternalNodes[this.KV.OuterTree_InternalNodes.length - 1].hash!;
         return this.root;
       }
     }
 
     // Append internal nodes to jagged 2D array representing merkle tree state
-    this.KV.InnerTree_InternalNodes.push(intermediaryArray); 
+    var num = this.MetaData.number_of_updates === 0 ? 
+              this.KV.InnerTree_InternalNodes.push(intermediaryArray) :
+              this.KV.InnerTree_InternalNodes[t] = this.KV.InnerTree_InternalNodes[t].concat(intermediaryArray); 
     t++;
     
     // Recursively call 'constructMerkleTree'
@@ -209,7 +220,7 @@ export class MerkleTree {
    */
   async updateElement(index: number, value: Buffer) {
     // Update the value at index
-    this.State.LeafNodes[index].value = value;
+    // this.State.LeafNodes[index].value = value;
 
     // Reconstruct the merkle root
     this.root = await this.constructMerkleTree(this.State.LeafNodes, this.State.LeafNodes.length, 0, 0); 
@@ -219,7 +230,7 @@ export class MerkleTree {
    * Creates the leaf nodes in the merkle tree 
    */
   async createLeafNode(values: Buffer[], count: number) {
-    this.State.LeafNodes = [];
+    // this.State.LeafNodes = [];
     for (let i = 0; i < count; i++) {
       this.State.LeafNodes.push({ 
         index: i, 
