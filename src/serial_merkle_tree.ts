@@ -1,4 +1,5 @@
 import { HashPath, Sha256Hasher } from './utils';
+import { KVStores } from './node';
 
 const MAX_DEPTH = 32;
 const LEAF_BYTES = 64; 
@@ -7,21 +8,21 @@ export class MerkleTree {
   public hasher = new Sha256Hasher();
   public root = Buffer.alloc(32);
 
-  // Object array decleration representing 'KV' store
-  public LeafNodes: Nodes.LeafNode[] = [];
-  public InternalNodes: Nodes.InternalNode[][] = [];
-  public HelperNodes: Nodes.InternalNode[] = [];
-  public PrecomputedZeroHashes: Nodes.InternalNode[] = [];
+  // Instantiate private 'KV' class object representing merkle tree data structure
+  private KV: KVStores.KVStore = new KVStores.KVStore();
+
+  // Instantiate private 'StateDB' class object representing the actual state data
+  private State: KVStores.StateDB = new KVStores.StateDB();
 
   // Constructor generates merkle root for empty tree
-  constructor(private name: string, public depth: number) {
+  constructor(public depth: number) {    
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Bad depth');
     }
     
     for (let i = 0; i <= depth; i++) {
       this.root = this.hasher.compress(this.root, this.root);
-      this.PrecomputedZeroHashes.push({
+      this.KV.PrecomputedZeroHashes.push({
         leftChild: null, 
         rightChild: null,
         hash: this.root,
@@ -32,16 +33,16 @@ export class MerkleTree {
   /**
    * Initialize new merkle tree instance
    */
-  static async new(name: string, depth = MAX_DEPTH) {
-      return new MerkleTree(name, depth);
+  static async new(depth = MAX_DEPTH) {
+      return new MerkleTree(depth);
   }
 
   /**
    * Construct merkle tree recursively
    */
-  async constructMerkleTree(internal: Nodes.InternalNode[], count: number, z: number, t: number): Promise<any> {
+  async constructMerkleTree(internal: KVStores.InternalNode[], count: number, z: number, t: number): Promise<any> {
     // Intermediary array to help with recursion
-    let intermediaryArray: Nodes.InternalNode[] = [];
+    let intermediaryArray: KVStores.InternalNode[] = [];
 
     // Calculate the number of parent nodes based on the number of child nodes
     let parents = Math.floor(count / 2 + count % 2);
@@ -60,33 +61,35 @@ export class MerkleTree {
       // Base case to terminate recursion
       if (parents == 1) {
         // Append root of 'Inner Tree'
-        this.InternalNodes.push(intermediaryArray); 
-        this.HelperNodes.push({
-          leftChild: this.InternalNodes[this.InternalNodes.length - 1][0],
+        this.KV.InternalNodes.push(intermediaryArray); 
+        this.KV.HelperNodes.push({
+          leftChild: this.KV.InternalNodes[this.KV.InternalNodes.length - 1][0],
           rightChild: null,
-          hash: this.InternalNodes[this.InternalNodes.length - 1][0].hash!,
+          hash: this.KV.InternalNodes[this.KV.InternalNodes.length - 1][0].hash!,
         });
 
         // Construct merkle tree for 'Outer Tree' if # number leaves != tree depth
-        if (Math.log2(this.LeafNodes.length) != (2^this.depth)) {
-          let y = Math.log2(this.LeafNodes.length);
-          const OUTER =  this.depth - Math.log2(this.LeafNodes.length);
+        if (Math.log2(this.State.LeafNodes.length) != (2^this.depth)) {
+          let y = Math.log2(this.State.LeafNodes.length);
+          const OUTER =  this.depth - Math.log2(this.State.LeafNodes.length);
           for (let i = 0; i < OUTER; i++) { 
-            this.HelperNodes.push({
-              leftChild: this.HelperNodes[this.HelperNodes.length - 1], 
-              rightChild: this.PrecomputedZeroHashes[y],
-              hash: this.hasher.compress(this.HelperNodes[this.HelperNodes.length - 1].hash!, this.PrecomputedZeroHashes[y].hash!),
+            this.KV.HelperNodes.push({
+              leftChild: this.KV.HelperNodes[this.KV.HelperNodes.length - 1], 
+              rightChild: this.KV.PrecomputedZeroHashes[y],
+              hash: this.hasher.compress(
+                this.KV.HelperNodes[this.KV.HelperNodes.length - 1].hash!, this.KV.PrecomputedZeroHashes[y].hash!
+              ),
             });
             y++;
           }
         }
-        this.root = this.HelperNodes[this.HelperNodes.length - 1].hash!;
+        this.root = this.KV.HelperNodes[this.KV.HelperNodes.length - 1].hash!;
         return this.root;
       }
     }
 
     // Append internal nodes to jagged 2D array representing merkle tree state
-    this.InternalNodes.push(intermediaryArray); 
+    this.KV.InternalNodes.push(intermediaryArray); 
     t++;
     
     // Recursively call 'constructMerkleTree'
@@ -102,15 +105,15 @@ export class MerkleTree {
 
     // Convert index from decimal to binary array
     let binary_array = Number(index).toString(2);
-    binary_array = '0'.repeat(Math.log2(this.LeafNodes.length) - binary_array.length) + binary_array;
+    binary_array = '0'.repeat(Math.log2(this.State.LeafNodes.length) - binary_array.length) + binary_array;
 
     // Construct hash path for 'Outer Tree' if # leaves != tree depth using precomputed zero hashes
-    const OUTER = this.depth - Math.log2(this.LeafNodes.length);
-    const length = this.HelperNodes.length - OUTER;  
-    if (Math.log2(this.LeafNodes.length) != (2^this.depth)) { 
+    const OUTER = this.depth - Math.log2(this.State.LeafNodes.length);
+    const length = this.KV.HelperNodes.length - OUTER;  
+    if (Math.log2(this.State.LeafNodes.length) != (2^this.depth)) { 
       for (let i = 0; i < OUTER; i++) {
-        TxHashPath.push(this.HelperNodes[length + i].leftChild?.hash!);
-        TxHashPath.push(this.HelperNodes[length + i].rightChild?.hash!);
+        TxHashPath.push(this.KV.HelperNodes[length + i].leftChild?.hash!);
+        TxHashPath.push(this.KV.HelperNodes[length + i].rightChild?.hash!);
       }
     }
 
@@ -119,18 +122,18 @@ export class MerkleTree {
     let binary_index = 0;
 
     // Construct hash path for 'Inner Tree'
-    let t = this.InternalNodes.length - 1;
-    TxHashPath.unshift(this.InternalNodes[t][0].rightChild!.hash!);
-    TxHashPath.unshift(this.InternalNodes[t][0].leftChild!.hash!);
-    const INNER = Math.log2(this.LeafNodes.length) - 1; 
+    let t = this.KV.InternalNodes.length - 1;
+    TxHashPath.unshift(this.KV.InternalNodes[t][0].rightChild!.hash!);
+    TxHashPath.unshift(this.KV.InternalNodes[t][0].leftChild!.hash!);
+    const INNER = Math.log2(this.State.LeafNodes.length) - 1; 
 
     for (let i = INNER; i > 0; i--) {
         t--;
         indice = binary_array[binary_index] == '0' ? 2 * indice : 2 * indice + 1;
         binary_index++;
 
-        TxHashPath.unshift(this.InternalNodes[t][indice].rightChild!.hash!);
-        TxHashPath.unshift(this.InternalNodes[t][indice].leftChild!.hash!);
+        TxHashPath.unshift(this.KV.InternalNodes[t][indice].rightChild!.hash!);
+        TxHashPath.unshift(this.KV.InternalNodes[t][indice].leftChild!.hash!);
     }
 
     // Construct 2D array for hash path
@@ -151,26 +154,26 @@ export class MerkleTree {
     var siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
 
     // Add leaf nodes in merkle path proof
-    merklePathProof.push(this.LeafNodes[index].hash!);
-    merklePathProof.push(this.LeafNodes[siblingIndex].hash!);
+    merklePathProof.push(this.State.LeafNodes[index].hash!);
+    merklePathProof.push(this.State.LeafNodes[siblingIndex].hash!);
 
     // Add 'Inner Tree' to merkle path proof
     let t = 0;
-    let depth = Math.log2(this.LeafNodes.length);
+    let depth = Math.log2(this.State.LeafNodes.length);
     for (let i = 1; i < depth; i++) {
       index = Math.floor(index / 2);  
       siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
-      merklePathProof.push(this.InternalNodes[t][siblingIndex].hash!);
+      merklePathProof.push(this.KV.InternalNodes[t][siblingIndex].hash!);
 
       t++;
     }
 
     // Add 'Outer Tree' to merkle path proof
-    if (Math.log2(this.LeafNodes.length) != (2^this.depth)) {
-      let y = Math.log2(this.LeafNodes.length);
-      const OUTER =  this.depth - Math.log2(this.LeafNodes.length);
+    if (Math.log2(this.State.LeafNodes.length) != (2^this.depth)) {
+      let y = Math.log2(this.State.LeafNodes.length);
+      const OUTER =  this.depth - Math.log2(this.State.LeafNodes.length);
       for (let i = 0; i < OUTER; i++) { 
-        merklePathProof.push(this.PrecomputedZeroHashes[y].hash!);
+        merklePathProof.push(this.KV.PrecomputedZeroHashes[y].hash!);
         y++;
       }
     }
@@ -204,19 +207,19 @@ export class MerkleTree {
    */
   async updateElement(index: number, value: Buffer) {
     // Update the value at index
-    this.LeafNodes[index].value = value;
+    this.State.LeafNodes[index].value = value;
 
     // Reconstruct the merkle root
-    this.root = await this.constructMerkleTree(this.LeafNodes, this.LeafNodes.length, 0, 0); 
+    this.root = await this.constructMerkleTree(this.State.LeafNodes, this.State.LeafNodes.length, 0, 0); 
   }
 
   /**
    * Creates the leaf nodes in the merkle tree 
    */
   async createLeafNode(values: Buffer[], count: number) {
-    this.LeafNodes = [];
+    this.State.LeafNodes = [];
     for (let i = 0; i < count; i++) {
-      this.LeafNodes.push({ 
+      this.State.LeafNodes.push({ 
         index: i, 
         value: values[i], 
         hash: this.hasher.hash(values[i]),
@@ -224,7 +227,7 @@ export class MerkleTree {
         rightChild: null,
       });
     }
-    return this.LeafNodes;
+    return this.State.LeafNodes;
   }
 
   /**

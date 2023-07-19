@@ -14,7 +14,7 @@ describe('merkle_tree', () => {
   });
 
   it('should have correct empty tree root for depth 32', async () => {
-    const tree = await MerkleTree.new('test', 32);
+    const tree = await MerkleTree.new(32);
     expect(tree.root.toString('hex')).toEqual('1c9a7e5ff1cf48b4ad1582d3f4e4a1004f3b20d8c5a2b71387a4254ad933ebc5');
   });
 
@@ -28,7 +28,7 @@ describe('merkle_tree', () => {
     const e11 = hasher.compress(e02, e03);
     const root = hasher.compress(e10, e11);
 
-    const tree = await MerkleTree.new('test', 2);
+    const tree = await MerkleTree.new(2);
 
     let count: number = 4;
     tree.createLeafNode(values, count);
@@ -59,7 +59,7 @@ describe('merkle_tree', () => {
   });
 
   it('should have correct results inserting 1024 values into 32 depth tree.', async () => {
-    const tree = await MerkleTree.new('test', 32);
+    const tree = await MerkleTree.new(32);
 
     let count: number = 1024;
     tree.createLeafNode(values, count);
@@ -96,7 +96,7 @@ describe('merkle_tree', () => {
     const e14 = hasher.hash(values[14]);
     const e15 = hasher.hash(values[15]);
 
-    const tree = await MerkleTree.new('test', 4);
+    const tree = await MerkleTree.new(4);
 
     let count: number = 16;
     tree.createLeafNode(values, count);
@@ -116,7 +116,7 @@ describe('merkle_tree', () => {
   });
 
   it('should have the correct merkle path proof and verification for full tree', async () => {
-    const tree = await MerkleTree.new('test', 32);
+    const tree = await MerkleTree.new(32);
 
     let count: number = 1024;
     tree.createLeafNode(values, count);
