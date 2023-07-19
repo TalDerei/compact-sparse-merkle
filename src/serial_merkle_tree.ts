@@ -92,7 +92,6 @@ export class MerkleTree {
         // Update metadata for state updates
         this.MetaData.number_of_updates++;
 
-        
         // Assign and return root of merkle tree 
         this.root = this.KV.OuterTree_InternalNodes[this.KV.OuterTree_InternalNodes.length - 1].hash!;
         return this.root;
@@ -100,9 +99,9 @@ export class MerkleTree {
     }
 
     // Append internal nodes to jagged 2D array representing merkle tree state
-    var num = this.MetaData.number_of_updates === 0 ? 
-              this.KV.InnerTree_InternalNodes.push(intermediaryArray) :
-              this.KV.InnerTree_InternalNodes[t] = this.KV.InnerTree_InternalNodes[t].concat(intermediaryArray); 
+    this.MetaData.number_of_updates === 0 ? 
+      this.KV.InnerTree_InternalNodes.push(intermediaryArray) :
+      this.KV.InnerTree_InternalNodes[t] = this.KV.InnerTree_InternalNodes[t].concat(intermediaryArray); 
     t++;
     
     // Recursively call 'constructMerkleTree'
@@ -112,7 +111,7 @@ export class MerkleTree {
   /**
    * Returns the hash path for `index`
    */
-  async getHashPath(index: number) {
+  async requestHashPath(index: number) {
     // Instantiate hash path array for transaction with 'index'
     let TxHashPath: Buffer[] = [];
 
@@ -159,7 +158,7 @@ export class MerkleTree {
   /**
    * Enables light client to request a merkle path proof for `index`
    */
-  async getMerklePathProof(index: number): Promise<Buffer[]> {
+  async requestMerklePathProof(index: number): Promise<Buffer[]> {
     // Instantiate merkle path proof for transaction with 'index'
     let merklePathProof: Buffer[] = [];
 
@@ -231,6 +230,7 @@ export class MerkleTree {
     this.State.LeafNodes[index].value = value;
 
     // Update the specific merkle path for the updated element
+
   }
 
   /**
