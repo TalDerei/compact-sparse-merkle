@@ -9,6 +9,7 @@ export namespace KVStore {
     }
 
     export class MerkleTreeMetaData {
+        depth: number = 0;
         number_of_updates: number = 0;
     }
 

@@ -163,7 +163,5 @@ describe('merkle_tree', () => {
 
     // Perform update 
     tree.update(0, values[1]);
-
-    // Expect
   });
 });

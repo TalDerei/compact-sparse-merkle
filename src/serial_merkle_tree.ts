@@ -13,15 +13,18 @@ export class MerkleTree {
   //    (2) merkle tree metadata
   //    (3) state data (ie. actual data)
   
-  public KV: KVStore.MerkleTreeDB = new KVStore.MerkleTreeDB();
-  public MetaData: KVStore.MerkleTreeMetaData = new KVStore.MerkleTreeMetaData();
-  public State: KVStore.StateDB = new KVStore.StateDB();
+  private KV: KVStore.MerkleTreeDB = new KVStore.MerkleTreeDB();
+  private MetaData: KVStore.MerkleTreeMetaData = new KVStore.MerkleTreeMetaData();
+  private State: KVStore.StateDB = new KVStore.StateDB();
 
   // Constructor generates merkle root for empty tree
   constructor(public depth: number) {    
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Bad depth');
     }
+
+    // Add fields to merkle tree metadata
+    this.MetaData.depth = depth;
     
     for (let i = 0; i <= depth; i++) {
       this.root = this.hasher.compress(this.root, this.root);
@@ -230,7 +233,7 @@ export class MerkleTree {
     this.State.LeafNodes[index].value = value;
 
     // Update the specific merkle path for the updated element
-
+    // TODO!
   }
 
   /**
