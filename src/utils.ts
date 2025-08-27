@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from "crypto";
 
 /**
  * HashPath class
@@ -24,12 +24,12 @@ export class HashPath {
  */
 export class Sha256Hasher {
   compress(lhs: Buffer, rhs: Buffer): Buffer {
-    return createHash('sha256')
+    return createHash("sha256")
       .update(Buffer.concat([lhs, rhs]))
       .digest();
   }
-  
+
   hash(data: Buffer): Buffer {
-    return createHash('sha256').update(data).digest();
+    return createHash("sha256").update(data).digest();
   }
 }
