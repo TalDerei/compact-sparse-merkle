@@ -4,12 +4,13 @@ export namespace KVStore {
     number_of_updates: number = 0;
     total_leaves: number = 0;
     tree_version: number = 0;
+    branching_factor: number = 2;
   }
 
   export class MerkleTreeDB {
     LeafNodes: LeafNode[] = [];
-    Cahched_StagingInternalTreeNode: InternalNode[] = [];
-    Cahched_InternalTreeNode: InternalNode[][] = [];
+    stagingInnerRoot: InternalNode[] = [];
+    cachedInnerSubtree: InternalNode[][] = [];
     InnerTree_InternalNodes: InternalNode[][] = [];
     OuterTree_InternalNodes: InternalNode[] = [];
     Precomputed_ZeroHashes: ZeroHash[] = [];

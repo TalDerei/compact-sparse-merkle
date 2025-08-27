@@ -1,7 +1,5 @@
 import { HashPath, Sha256Hasher } from "./utils";
 import { KVStore } from "./node";
-import { MAX_DEPTH, LEAF_BYTES, TREE_WIDTH } from "./index";
-import { createHash } from "crypto";
 
 /// Incremental, Append-Only Compact Sparse Merkle Tree.
 ///
@@ -22,7 +20,8 @@ export class MerkleTree {
     new KVStore.MerkleTreeMetaData();
 
   /// Constructor generates merkle root for empty tree with depth 'd'.
-  /// 'Precomputed_ZeroHashes' is a lookup table for sparse compressed state.
+  /// 'Precomputed_ZeroHashes' is a lookup table for sparse compressed state,
+  /// more precisely the hash of an empty complete subtree of height i (2^i leaves).
   constructor(public depth: number) {
     this.MetaData.depth = depth;
 
@@ -37,21 +36,21 @@ export class MerkleTree {
   }
 
   /// Initialize new merkle tree instance.
-  static async new(depth = MAX_DEPTH) {
+  static async new(depth: number) {
     return new MerkleTree(depth);
   }
 
   /// Recursively constructs the merkle tree from bottom up.
   async constructMerkleTree(
-    mempool: KVStore.InternalNode[],
+    levelNodes: KVStore.InternalNode[],
     nodeCount: number,
-    branchingFactor: number,
-    localDepth: number,
-    prevLeafCount: number,
+    level: number,
+    prevLeafs: number,
   ): Promise<any> {
     let intermediaryArray: KVStore.InternalNode[] = [];
     let parents = Math.floor(
-      nodeCount / branchingFactor + (nodeCount % branchingFactor),
+      nodeCount / this.MetaData.branching_factor +
+        (nodeCount % this.MetaData.branching_factor),
     );
 
     /// Construct merkle tree for the 'Inner Tree'.
@@ -59,9 +58,12 @@ export class MerkleTree {
     let j = 0;
     for (let i = 0; i < nodeCount; i += 2) {
       intermediaryArray[j] = {
-        hash: this.hasher.compress(mempool[i].hash!, mempool[i + 1].hash!),
-        leftChild: mempool[i],
-        rightChild: mempool[i + 1],
+        hash: this.hasher.compress(
+          levelNodes[i].hash!,
+          levelNodes[i + 1].hash!,
+        ),
+        leftChild: levelNodes[i],
+        rightChild: levelNodes[i + 1],
       };
       j++;
     }
@@ -71,8 +73,8 @@ export class MerkleTree {
       this.KV.InnerTree_InternalNodes.push(intermediaryArray);
 
       // Detection mechanism for caching the leftmost internal nodes we know won't change, represented as a single hash.
-      if (this.KV.LeafNodes.length % (1 << localDepth) === 0) {
-        this.KV.Cahched_InternalTreeNode.push(
+      if (this.KV.LeafNodes.length % (1 << level) === 0) {
+        this.KV.cachedInnerSubtree.push(
           this.KV.InnerTree_InternalNodes[
             this.KV.InnerTree_InternalNodes.length - 1
           ],
@@ -80,11 +82,7 @@ export class MerkleTree {
       }
 
       // Merge the inner subtree roots after an insertion that croses a boundary conditon (merkle expansion).
-      this.mergeInnerAndOuterTrees(
-        intermediaryArray,
-        localDepth,
-        prevLeafCount,
-      );
+      this.mergeInnerAndOuterTrees(intermediaryArray, level, prevLeafs);
       this.MetaData.number_of_updates++;
 
       /// Final outer tree node hash becomes the merkle root.
@@ -95,80 +93,61 @@ export class MerkleTree {
       return this.root;
     }
 
-    this.KV.InnerTree_InternalNodes[localDepth] = intermediaryArray;
-    localDepth++;
+    this.KV.InnerTree_InternalNodes[level] = intermediaryArray;
+    level++;
 
     // Recursively call 'constructMerkleTree'.
     return this.constructMerkleTree(
       intermediaryArray,
       parents,
-      TREE_WIDTH,
-      localDepth,
-      prevLeafCount,
+      level,
+      prevLeafs,
     );
   }
 
-  async mergeInnerAndOuterTrees(
-    innerRootCandidates: KVStore.InternalNode[],
-    localDepth: number,
-    prevLeafCount: number,
+  mergeInnerAndOuterTrees(
+    innerRoots: KVStore.InternalNode[],
+    level: number,
+    prevLeafs: number,
   ) {
-    ///
     if (
       this.MetaData.number_of_updates > 0 &&
-      this.KV.LeafNodes.length % (1 << localDepth) === 0
+      this.KV.LeafNodes.length % (1 << level) === 0
     ) {
-      if (this.KV.Cahched_StagingInternalTreeNode.length > 0) {
-        let mergedInnerSubtrees2: KVStore.InternalNode = {
+      let rightCandidate: KVStore.InternalNode;
+
+      if (this.KV.stagingInnerRoot.length > 0) {
+        rightCandidate = {
           hash: this.hasher.compress(
-            this.KV.Cahched_StagingInternalTreeNode[0].hash!,
-            innerRootCandidates[0].hash!,
+            this.KV.stagingInnerRoot[0].hash!,
+            innerRoots[0].hash!,
           ),
-          // left and right child need to be fixed
-          leftChild: this.KV.Cahched_StagingInternalTreeNode[0],
-          rightChild: innerRootCandidates[0],
+          leftChild: this.KV.stagingInnerRoot[0],
+          rightChild: innerRoots[0],
         };
-
-        this.KV.Cahched_StagingInternalTreeNode = [];
-
-        let mergedInnerSubtrees: KVStore.InternalNode = {
-          hash: this.hasher.compress(
-            this.KV.Cahched_InternalTreeNode[0][0].hash!,
-            mergedInnerSubtrees2.hash!,
-          ),
-          leftChild: this.KV.Cahched_InternalTreeNode[0][0],
-          rightChild: mergedInnerSubtrees2,
-        };
-
-        if (this.KV.Cahched_InternalTreeNode.length > 1) {
-          this.KV.Cahched_InternalTreeNode = [[mergedInnerSubtrees]];
-        }
-
-        this.KV.OuterTree_InternalNodes.push({
-          leftChild: mergedInnerSubtrees.leftChild,
-          rightChild: null,
-          hash: mergedInnerSubtrees.hash,
-        });
+        this.KV.stagingInnerRoot = [];
       } else {
-        let mergedInnerSubtrees: KVStore.InternalNode = {
-          hash: this.hasher.compress(
-            this.KV.Cahched_InternalTreeNode[0][0].hash!,
-            innerRootCandidates[0].hash!,
-          ),
-          leftChild: this.KV.Cahched_InternalTreeNode[0][0],
-          rightChild: innerRootCandidates[0],
-        };
-
-        if (this.KV.Cahched_InternalTreeNode.length > 1) {
-          this.KV.Cahched_InternalTreeNode = [[mergedInnerSubtrees]];
-        }
-
-        this.KV.OuterTree_InternalNodes.push({
-          leftChild: mergedInnerSubtrees.leftChild,
-          rightChild: null,
-          hash: mergedInnerSubtrees.hash,
-        });
+        rightCandidate = innerRoots[0];
       }
+
+      const merged: KVStore.InternalNode = {
+        hash: this.hasher.compress(
+          this.KV.cachedInnerSubtree[0][0].hash!,
+          rightCandidate.hash!,
+        ),
+        leftChild: this.KV.cachedInnerSubtree[0][0],
+        rightChild: rightCandidate,
+      };
+
+      if (this.KV.cachedInnerSubtree.length > 1) {
+        this.KV.cachedInnerSubtree = [[merged]];
+      }
+
+      this.KV.OuterTree_InternalNodes.push({
+        leftChild: merged.leftChild,
+        rightChild: null,
+        hash: merged.hash,
+      });
     } else {
       this.KV.OuterTree_InternalNodes.push({
         leftChild:
@@ -189,13 +168,13 @@ export class MerkleTree {
     /// into the compact sparse Merkle structure.
     if (Math.log2(this.KV.LeafNodes.length) !== this.depth) {
       let y = Math.floor(Math.log2(this.KV.LeafNodes.length));
-      let s = this.KV.LeafNodes.length % (1 << localDepth);
+      let s = this.KV.LeafNodes.length % (1 << level);
 
       let OUTER = this.depth - Math.ceil(Math.log2(this.KV.LeafNodes.length));
       /// This means we've partially filled the tree.
       if (s !== 0) {
         for (let i = 0; i < OUTER; i++) {
-          this.KV.Cahched_StagingInternalTreeNode.push(
+          this.KV.stagingInnerRoot.push(
             this.KV.OuterTree_InternalNodes[
               this.KV.OuterTree_InternalNodes.length - 1
             ],
@@ -213,14 +192,14 @@ export class MerkleTree {
               this.KV.Precomputed_ZeroHashes[i].hash!,
             ),
           });
-          localDepth++;
+          level++;
         }
 
         let mergeInnerRoots = this.hasher.compress(
           this.KV.OuterTree_InternalNodes[
             this.KV.OuterTree_InternalNodes.length - 1
           ].hash!,
-          this.KV.Cahched_InternalTreeNode[0][0].hash!,
+          this.KV.cachedInnerSubtree[0][0].hash!,
         );
 
         for (let i = 0; i < OUTER; i++) {
@@ -232,10 +211,10 @@ export class MerkleTree {
             rightChild: this.KV.Precomputed_ZeroHashes[i],
             hash: this.hasher.compress(
               mergeInnerRoots,
-              this.KV.Precomputed_ZeroHashes[localDepth].hash!,
+              this.KV.Precomputed_ZeroHashes[level].hash!,
             ),
           });
-          localDepth++;
+          level++;
         }
       } else {
         /// 't' tracks the local depth you’ve recursed into while building from a partially filled subtree.
@@ -243,9 +222,7 @@ export class MerkleTree {
         const n = this.KV.LeafNodes.length;
         const isPow2 = (x: number) => x > 0 && (x & (x - 1)) === 0;
         let zeroIdx =
-          isPow2(n) && !isPow2(prevLeafCount)
-            ? Math.floor(Math.log2(n))
-            : localDepth;
+          isPow2(n) && !isPow2(prevLeafs) ? Math.floor(Math.log2(n)) : level;
 
         for (let i = 0; i < OUTER; i++) {
           this.KV.OuterTree_InternalNodes.push({
@@ -262,7 +239,7 @@ export class MerkleTree {
             ),
           });
           zeroIdx++;
-          localDepth++;
+          level++;
         }
       }
     }
@@ -273,7 +250,7 @@ export class MerkleTree {
   /// 1. First adds OUTER tree nodes to path (if they exist),
   /// 2. Then traverses INNER tree based on binary representation of index,
   /// 3. Returns complete path from leaf to root.
-  async requestHashPath(index: number) {
+  requestHashPath(index: number) {
     /// Instantiate hash path array for transaction with 'index'.
     let TxHashPath: Buffer[] = [];
 
@@ -394,7 +371,7 @@ export class MerkleTree {
   }
 
   /// Performs a batch insertion for a array buffer of values.
-  async insert(subtree: Buffer[]) {
+  insert(subtree: Buffer[]) {
     const oldLeafCount = this.KV.LeafNodes.length;
     const oldInternalCount = this.KV.InnerTree_InternalNodes.length;
 
@@ -413,16 +390,10 @@ export class MerkleTree {
     const newLeaves = this.KV.LeafNodes.slice(startIndex);
     const t = this.MetaData.number_of_updates === 0 ? 0 : oldInternalCount;
 
-    this.constructMerkleTree(
-      newLeaves,
-      newLeaves.length,
-      TREE_WIDTH,
-      t,
-      oldLeafCount,
-    );
+    this.constructMerkleTree(newLeaves, newLeaves.length, t, oldLeafCount);
   }
 
-  async update(index: number, value: Buffer) {
+  update(index: number, value: Buffer) {
     this.KV.LeafNodes[index].value = value;
   }
 
@@ -431,6 +402,3 @@ export class MerkleTree {
     return this.root;
   }
 }
-
-// TODO: what is actualluy being persisted? I'd like to accumulate results
-// in-memory, and then batch insert into inner stores at the end with the proper updates.

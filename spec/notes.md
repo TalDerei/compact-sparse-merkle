@@ -20,3 +20,8 @@ The code performs a batch insertion by constructing sub-tree with a specific bat
 
 Every merkle tree update is composed of a batch insertion to the merkle tree, and every leaf node inside the batch is either (1) existing leaf or (2) new leaf. The case for (1) is trivial; simply update the hash path of the leaf node that was update and recalculate the merkle root. The case for (2) involves expanding the size of the tree by reconstructing portions of the merkle tree
 (ie. call to 'constructMerkleTree'). If we naively reconstruct the merkle tree from scratch from the entire array of leafNodes, every batch insertion will lead to longer merkle tree reconstruction times as the number of leaf nodes grows. A potential parallelization scheme involves assigning a seperate thread to each batch size (ie. 1024 leaf nodes), and every thread reconstructs their batch. This is akin to a sum-reduction problem. Achieving a constant-time merkle tree construction involves simply expanding the already constructed merkle tree with new leaf nodes. It's possible to append data to an existing tree efficiently without recomputing the entire tree, where the number of operations is logarithmic with respect to the dataset.
+
+**Q. TODOs?**
+
+1. Time and space complexity analysis (search, traversal, insertion, deletion).
+2. Parallelization strategy: parallel, lock-free batch insertions in-memory and atomic writes.
