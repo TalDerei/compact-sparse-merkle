@@ -1,3 +1,1 @@
-# parallel-merkle-tree
-
-Parallel dense merkle tree
+# Incremental, Append-Only Compact Sparse Merkle Tree
